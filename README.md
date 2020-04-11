@@ -1,3 +1,1 @@
 # node-image-search
-
-

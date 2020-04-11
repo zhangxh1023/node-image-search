@@ -1,0 +1,18 @@
+[package]
+name = "node-image-search"
+version = "0.1.0"
+authors = ["zhangxh1023 <zhangxh1023@qq.com>"]
+license = "MIT"
+build = "build.rs"
+exclude = ["artifacts.json", "index.node"]
+
+[lib]
+name = "image_search"
+crate-type = ["cdylib"]
+
+[build-dependencies]
+neon-build = "0.3.3"
+
+[dependencies]
+neon = "0.3.3"
+image = "0.23.3"

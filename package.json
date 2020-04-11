@@ -1,0 +1,14 @@
+{
+  "name": "node-image-search",
+  "version": "0.1.0",
+  "description": "",
+  "main": "lib/index.js",
+  "author": "zhangxh1023 <zhangxh1023@qq.com>",
+  "license": "MIT",
+  "dependencies": {
+    "neon-cli": "^0.3.3"
+  },
+  "scripts": {
+    "install": "neon build"
+  }
+}

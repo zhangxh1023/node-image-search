@@ -1,210 +1,267 @@
 extern crate image;
 
-use self::image::{imageops, GenericImageView, ImageBuffer};
+use self::image::{imageops, GenericImageView, ImageBuffer, Pixel};
 use std::path::Path;
 
+use crate::utils;
+
 #[derive(Debug)]
-pub struct ChildImg {
-  pub point: (u32, u32),
+pub struct Point {
+  pub x: u32,
+  pub y: u32,
   pub hash_string: String,
   pub hamming_distance: u32,
 }
 
-pub fn convert_to_binary_from_hex(hex: &str) -> String {
-  hex.chars().map(to_binary).collect()
+pub struct ResultPoint {
+  pub x: u32,
+  pub y: u32,
+  pub hash_string: String,
+  pub hamming_distance: u32,
 }
 
-pub fn to_binary(c: char) -> &'static str {
-  match c {
-    '0' => "0000",
-    '1' => "0001",
-    '2' => "0010",
-    '3' => "0011",
-    '4' => "0100",
-    '5' => "0101",
-    '6' => "0110",
-    '7' => "0111",
-    '8' => "1000",
-    '9' => "1001",
-    'A' => "1010",
-    'B' => "1011",
-    'C' => "1100",
-    'D' => "1101",
-    'E' => "1110",
-    'F' => "1111",
-    _ => "",
-  }
+pub struct Image {
+  pub path: String,
+  pub image: image::DynamicImage,
 }
 
-pub fn search(main_img_path: String, min_img_path: String) ->  Vec<ChildImg> {
-  let main_path = &main_img_path;
-  let min_path = &min_img_path;
-  let main_img = image::open(&Path::new(main_path)).unwrap();
-  let min_img = image::open(&Path::new(min_path)).unwrap();
-  let main_img_width = main_img.width();
-  let main_img_height = main_img.height();
-  let min_img_width = min_img.width();
-  let min_img_height = min_img.height();
-
-  if main_img_width < min_img_width || main_img_height < min_img_height {
-    panic!("img size error");
+impl Image {
+  pub fn new(path: String) -> Self {
+    let image = match image::open(&Path::new(&path)) {
+      Ok(img) => img,
+      Err(e) => panic!(e),
+    };
+    let path_slice: Vec<&str> = path.split(".").collect();
+    let len = path_slice.len();
+    if path_slice[len - 1] != "jpeg" && path_slice[len - 1] != "jpg" && path_slice[len - 1] != "png"
+    {
+      panic!("Unexpected image type!");
+    }
+    Image { path, image }
   }
 
-  let min_img_hash_string = get_hash_string(&min_img);
+  fn get_size(&self) -> (u32, u32) {
+    let width = self.image.width();
+    let height = self.image.height();
+    return (width, height);
+  }
 
-  let iterate_width = main_img_width - min_img_width;
-  let iterate_height = main_img_height - min_img_height;
-
-  let mut minimal_hamming_distance_child_img: Vec<ChildImg> = vec![];
-  for width in 0..iterate_width {
-    for height in 0..iterate_height {
-      let point = (width, height);
-      let img = create_image_buffer_from_main_img(
-        width,
-        width + min_img_width,
-        height,
-        height + min_img_height,
-        &main_img,
-      );
-      let hash_string = get_hash_string(&img);
-      let mut hamming_distance = 0;
-      let mut binary_hash_string = convert_to_binary_from_hex(&hash_string);
-      let mut binary_min_img_hash_string = convert_to_binary_from_hex(&min_img_hash_string);
-      while binary_hash_string.len() < 64 {
-        binary_hash_string = String::from("0") + &binary_hash_string;
-      }
-      while binary_min_img_hash_string.len() < 64 {
-        binary_min_img_hash_string = String::from("0") + &binary_min_img_hash_string;
-      }
-      for index in 0..64 {
-        if &binary_hash_string.as_bytes()[index] != &binary_min_img_hash_string.as_bytes()[index] {
-          hamming_distance += 1;
+  pub fn get_d_hash(&self) -> String {
+    let resize_width = 9;
+    let resize_height = 8;
+    // resize
+    let resized_img =
+      self
+        .image
+        .resize_exact(resize_width, resize_height, imageops::FilterType::Nearest);
+    // 灰度化
+    let resized_img = imageops::colorops::grayscale(&resized_img);
+    // calculate difference
+    let mut difference: Vec<u8> = vec![];
+    for height in 0..resize_height {
+      for width in 0..(resize_width - 1) {
+        let v_before = match resized_img.get_pixel(width, height) {
+          &image::Luma(v) => v,
+        };
+        let v_later = match resized_img.get_pixel(width + 1, height) {
+          &image::Luma(v) => v,
+        };
+        if v_before > v_later {
+          difference.push(1);
+        } else {
+          difference.push(0);
         }
       }
+    }
+    let mut decimal_value: i32 = 0;
+    let mut img_hash_string = String::new();
+    for (index, value) in difference.iter().enumerate() {
+      if *value == 1 {
+        decimal_value += *value as i32 * (2_i32.pow(index as u32 % 8)) as i32;
+      }
+      if index as u32 % 8 == 7 {
+        let hex_str = format!("{:X}", decimal_value);
+        let mut hash = hex_str.to_string();
+        while hash.len() < 2 {
+          hash = String::from("0") + &hash;
+        }
+        img_hash_string = format!("{}{}", img_hash_string, hash);
+        decimal_value = 0;
+      }
+    }
 
-      if minimal_hamming_distance_child_img.len() == 0 {
-        minimal_hamming_distance_child_img.push(ChildImg {
-          point,
-          hash_string,
+    return img_hash_string;
+  }
+
+  pub fn sort_result_point_vector(&self, result_point_vec: &mut Vec<Vec<ResultPoint>>) {
+    result_point_vec.sort_by(|a, b| {
+      let a = &a[0];
+      let b = &b[0];
+      let a = a.hamming_distance;
+      let b = b.hamming_distance;
+      a.cmp(&b)
+    });
+  }
+
+  pub fn try_to_push_result_point(&self, result_point_vec: &mut Vec<Vec<ResultPoint>>, max_length: usize, result_point: ResultPoint) {
+    if result_point_vec.len() < max_length {
+      let mut exist_same_hamming_distance_index: i32 = -1;
+      for (index, item) in result_point_vec.iter().enumerate() {
+        if item[0].hamming_distance == result_point.hamming_distance {
+          exist_same_hamming_distance_index = index as i32;
+          break;
+        }
+      }
+      if exist_same_hamming_distance_index > -1 {
+        result_point_vec[exist_same_hamming_distance_index as usize].push(result_point);
+      } else {
+        result_point_vec.pop();
+        let new_vec = vec![result_point];
+        result_point_vec.push(new_vec);
+      }
+    } else {
+      let last = &result_point_vec[result_point_vec.len() - 1];
+      if last[0].hamming_distance >= result_point.hamming_distance {
+        let mut exist_same_hamming_distance_index: i32 = -1;
+        for (index, item) in result_point_vec.iter().enumerate() {
+          if item[0].hamming_distance == result_point.hamming_distance {
+            exist_same_hamming_distance_index = index as i32;
+            break;
+          }
+        }
+        if exist_same_hamming_distance_index > -1 {
+          result_point_vec[exist_same_hamming_distance_index as usize].push(result_point);
+        } else {
+          result_point_vec.pop();
+          let new_vec = vec![result_point];
+          result_point_vec.push(new_vec);
+        }
+      }
+    }
+
+    self.sort_result_point_vector(result_point_vec);
+  }
+
+  pub fn search_child_image_point_from_parent_image(&self, child_image: &Image, result_level: u32) -> Vec<Vec<ResultPoint>> {
+    let child_image_d_hash = child_image.get_d_hash();
+    let mut min_hamming_distance_for_point: Vec<Vec<ResultPoint>> = vec![];
+    let (child_image_width, child_image_height) = child_image.get_size();
+    let iterate_width = self.image.width() - child_image_width;
+    let iterate_height = self.image.height() - child_image_height;
+
+    for width in 0..iterate_width {
+      for height in 0..iterate_height {
+        let mut temp_image: image::ImageBuffer<image::Rgb<u8>, std::vec::Vec<u8>> =
+          ImageBuffer::new(child_image_width, child_image_height);
+        for x in width..width + child_image_width {
+          for y in height..height + child_image_height {
+            let p = self.image.get_pixel(x, y);
+            let p = p.to_rgb();
+            temp_image.put_pixel(x - width, y - height, p);
+          }
+        }
+        let temp_image = Image {
+          path: String::new(),
+          image: image::DynamicImage::ImageRgb8(temp_image),
+        };
+        let temp_image_d_hash = temp_image.get_d_hash();
+        let hamming_distance =
+          utils::get_hamming_distance_by_hex_hash(&temp_image_d_hash, &child_image_d_hash);
+
+        let result_point = ResultPoint {
+          x: width,
+          y: height,
           hamming_distance,
-        })
-      } else {
-        let child_img = minimal_hamming_distance_child_img
-          .get(0)
-          .expect("minimal_hamming_distance_child_img index overflow");
-        if child_img.hamming_distance == hamming_distance {
-          minimal_hamming_distance_child_img.push(ChildImg {
-            point,
-            hash_string,
-            hamming_distance,
-          })
-        } else if child_img.hamming_distance > hamming_distance {
-          minimal_hamming_distance_child_img = vec![];
-          minimal_hamming_distance_child_img.push(ChildImg {
-            point,
-            hash_string,
-            hamming_distance,
-          })
+          hash_string: temp_image_d_hash,
+        };
+        self.try_to_push_result_point(&mut min_hamming_distance_for_point, result_level as usize, result_point);
+      }
+    }
+    return min_hamming_distance_for_point;
+  }
+
+  #[allow(dead_code)]
+  pub fn mark_child_image_border_with_new_image(
+    &self,
+    child_image: &Image,
+    path: &str,
+    point: &Vec<&Vec<Point>>,
+  ) {
+    let new_image = self.image.clone();
+    match new_image {
+      image::DynamicImage::ImageRgb8(mut img) => {
+        let (child_image_width, child_image_height) = child_image.get_size();
+        let (parent_image_width, parent_image_height) = self.get_size();
+
+        for v in point {
+          for p in *v {
+            let Point {
+              x: start_x,
+              y: start_y,
+              hash_string: _,
+              hamming_distance: _,
+            } = p;
+
+            for x in 0..child_image_width {
+              let point_x = x + start_x;
+              if point_x < parent_image_width - 1 {
+                let pixel = self.image.get_pixel(point_x, *start_y);
+                let pixel = [255 - pixel[0], 255 - pixel[1], 255 - pixel[2]];
+                img.put_pixel(point_x, *start_y, image::Rgb(pixel));
+              } else {
+                break;
+              }
+            }
+
+            for y in 0..child_image_height {
+              let point_y = y + start_y;
+              if point_y < parent_image_height - 1 {
+                let pixel = self.image.get_pixel(*start_x, point_y);
+                let pixel = [255 - pixel[0], 255 - pixel[1], 255 - pixel[2]];
+                img.put_pixel(*start_x, point_y, image::Rgb(pixel));
+              }
+            }
+          }
         }
+        img.save(Path::new(path)).expect("save image error");
       }
-    }
-  }
+      image::DynamicImage::ImageRgba8(mut img) => {
+        let (child_image_width, child_image_height) = child_image.get_size();
+        let (parent_image_width, parent_image_height) = self.get_size();
 
-  println!("{:?}", minimal_hamming_distance_child_img);
+        for v in point {
+          for p in *v {
+            let Point {
+              x: start_x,
+              y: start_y,
+              hash_string: _,
+              hamming_distance: _,
+            } = p;
 
-  // let (x, y) = minimal_hamming_distance_child_img[0].point;
-  // let mut temp_img: ImageBuffer<image::Rgba<u16>, std::vec::Vec<u16>> =
-  // ImageBuffer::new(main_img_width, main_img_height);
-  // let out_image = &image::DynamicImage::ImageRgba16(temp_img);
-  // mark_square(x, y, &main_img, &min_img, out_image, &minimal_hamming_distance_child_img);
+            for x in 0..child_image_width {
+              let point_x = x + start_x;
+              if point_x < parent_image_width - 1 {
+                let pixel = self.image.get_pixel(point_x, *start_y);
+                let pixel = [255 - pixel[0], 255 - pixel[1], 255 - pixel[2], pixel[3]];
+                img.put_pixel(point_x, *start_y, image::Rgba(pixel));
+              } else {
+                break;
+              }
+            }
 
-  // temp_img.save(&Path::new("./temp.jpeg")).unwrap();
-  minimal_hamming_distance_child_img
-}
-
-pub fn mark(x: u32, y: u32, temp_img: &mut image::ImageBuffer<image::Rgb<u8>, std::vec::Vec<u8>>) {
-  let mut temp_pixel = match temp_img.get_pixel(x, y) {
-    image::Rgb(v) => *v,
-  };
-  temp_pixel[0] = 255 - temp_pixel[0];
-  temp_pixel[1] = 255 - temp_pixel[1];
-  temp_pixel[2] = 255 - temp_pixel[2];
-  temp_img.put_pixel(x, y, image::Rgb([temp_pixel[0], temp_pixel[1], temp_pixel[2]]));
-  temp_img.put_pixel(x - 1, y, image::Rgb([temp_pixel[0], temp_pixel[1], temp_pixel[2]]));
-  temp_img.put_pixel(x + 1, y, image::Rgb([temp_pixel[0], temp_pixel[1], temp_pixel[2]]));
-  temp_img.put_pixel(x, y - 1, image::Rgb([temp_pixel[0], temp_pixel[1], temp_pixel[2]]));
-  temp_img.put_pixel(x, y + 1, image::Rgb([temp_pixel[0], temp_pixel[1], temp_pixel[2]]));
-  temp_img.put_pixel(x - 1, y - 1, image::Rgb([temp_pixel[0], temp_pixel[1], temp_pixel[2]]));
-  temp_img.put_pixel(x + 1, y + 1, image::Rgb([temp_pixel[0], temp_pixel[1], temp_pixel[2]]));
-  temp_img.put_pixel(x - 1, y + 1, image::Rgb([temp_pixel[0], temp_pixel[1], temp_pixel[2]]));
-  temp_img.put_pixel(x + 1, y - 1, image::Rgb([temp_pixel[0], temp_pixel[1], temp_pixel[2]]));
-}
-
-pub fn mark_square(start_x: u32, start_y: u32, main_image: &image::DynamicImage, min_image: &image::DynamicImage, out_image: &image::DynamicImage, minimal_hamming_distance_child_img: &Vec<ChildImg>) {
-
-}
-
-pub fn get_hash_string(img: &image::DynamicImage) -> String {
-  let resize_width = 9;
-  let resize_height = 8;
-  // resize
-  let resized_img = img.resize_exact(resize_width, resize_height, imageops::FilterType::Nearest);
-  // 灰度化
-  let resized_img = imageops::colorops::grayscale(&resized_img);
-  // 计算差异值
-  let mut difference: Vec<u8> = vec![];
-  for height in 0..resize_height {
-    for width in 0..(resize_width - 1) {
-      let v_before = match resized_img.get_pixel(width, height) {
-        &image::Luma(v) => v,
-      };
-      let v_later = match resized_img.get_pixel(width + 1, height) {
-        &image::Luma(v) => v,
-      };
-      if v_before > v_later {
-        difference.push(1);
-      } else {
-        difference.push(0);
+            for y in 0..child_image_height {
+              let point_y = y + start_y;
+              if point_y < parent_image_height - 1 {
+                let pixel = self.image.get_pixel(*start_x, point_y);
+                let pixel = [255 - pixel[0], 255 - pixel[1], 255 - pixel[2], pixel[3]];
+                img.put_pixel(*start_x, point_y, image::Rgba(pixel));
+              }
+            }
+          }
+        }
+        img.save(Path::new(path)).expect("save image error");
       }
-    }
+      _ => (),
+    };
   }
-  let mut decimal_value: i32 = 0;
-  let mut img_hash_string = String::new();
-  for (index, value) in difference.iter().enumerate() {
-    if *value == 1 {
-      decimal_value += *value as i32 * (2_i32.pow(index as u32 % 8)) as i32;
-    }
-    if index as u32 % 8 == 7 {
-      let hex_str = format!("{:X}", decimal_value);
-      let mut hash = hex_str.to_string();
-      while hash.len() < 2 {
-        hash = String::from("0") + &hash;
-      }
-      img_hash_string = format!("{}{}", img_hash_string, hash);
-      decimal_value = 0;
-    }
-  }
-
-  return img_hash_string;
-}
-
-pub fn create_image_buffer_from_main_img(
-  start_width: u32,
-  end_width: u32,
-  start_height: u32,
-  end_height: u32,
-  main_img: &image::DynamicImage,
-) -> image::DynamicImage {
-  let mut temp_img: ImageBuffer<image::Rgba<u8>, std::vec::Vec<u8>> =
-    ImageBuffer::new(end_width - start_width, end_height - start_height);
-  for width in start_width..end_width {
-    for height in start_height..end_height {
-      temp_img.put_pixel(
-        width - start_width,
-        height - start_height,
-        main_img.get_pixel(width, height),
-      );
-    }
-  }
-  return image::DynamicImage::ImageRgba8(temp_img);
 }

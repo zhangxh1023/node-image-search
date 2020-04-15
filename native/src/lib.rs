@@ -17,7 +17,8 @@ impl Task for ImageSearchTask {
   fn perform(&self) -> Result<Self::Output, Self::Error> {
     let parent_image = image::Image::new(self.parent_image_path.clone());
     let child_image = image::Image::new(self.child_image_path.clone());
-    let result = parent_image.search_child_image_point_from_parent_image(&child_image, self.result_level);
+    let result =
+      parent_image.search_child_image_point_from_parent_image(&child_image, self.result_level);
 
     Ok(result)
   }
@@ -28,7 +29,8 @@ impl Task for ImageSearchTask {
   ) -> JsResult<Self::JsEvent> {
     let result = result.unwrap();
     let result_array = JsArray::new(&mut cx, result.len() as u32);
-    for v in result.iter() {
+    for (i, v) in result.iter().enumerate() {
+      let temp_array = JsArray::new(&mut cx, v.len() as u32);
       for (index, object) in v.iter().enumerate() {
         let result_object = JsObject::new(&mut cx);
         let x = object.x;
@@ -45,10 +47,11 @@ impl Task for ImageSearchTask {
         result_object
           .set(&mut cx, "hamming_distance", hamming_distance)
           .unwrap();
-        result_array
+        temp_array
           .set(&mut cx, index as u32, result_object)
           .unwrap();
       }
+      result_array.set(&mut cx, i as u32, temp_array).unwrap();
     }
 
     Ok(result_array)

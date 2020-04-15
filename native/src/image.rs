@@ -103,7 +103,12 @@ impl Image {
     });
   }
 
-  pub fn try_to_push_result_point(&self, result_point_vec: &mut Vec<Vec<ResultPoint>>, max_length: usize, result_point: ResultPoint) {
+  pub fn try_to_push_result_point(
+    &self,
+    result_point_vec: &mut Vec<Vec<ResultPoint>>,
+    max_length: usize,
+    result_point: ResultPoint,
+  ) {
     if result_point_vec.len() < max_length {
       let mut exist_same_hamming_distance_index: i32 = -1;
       for (index, item) in result_point_vec.iter().enumerate() {
@@ -115,7 +120,6 @@ impl Image {
       if exist_same_hamming_distance_index > -1 {
         result_point_vec[exist_same_hamming_distance_index as usize].push(result_point);
       } else {
-        result_point_vec.pop();
         let new_vec = vec![result_point];
         result_point_vec.push(new_vec);
       }
@@ -142,7 +146,11 @@ impl Image {
     self.sort_result_point_vector(result_point_vec);
   }
 
-  pub fn search_child_image_point_from_parent_image(&self, child_image: &Image, result_level: u32) -> Vec<Vec<ResultPoint>> {
+  pub fn search_child_image_point_from_parent_image(
+    &self,
+    child_image: &Image,
+    result_level: u32,
+  ) -> Vec<Vec<ResultPoint>> {
     let child_image_d_hash = child_image.get_d_hash();
     let mut min_hamming_distance_for_point: Vec<Vec<ResultPoint>> = vec![];
     let (child_image_width, child_image_height) = child_image.get_size();
@@ -174,7 +182,11 @@ impl Image {
           hamming_distance,
           hash_string: temp_image_d_hash,
         };
-        self.try_to_push_result_point(&mut min_hamming_distance_for_point, result_level as usize, result_point);
+        self.try_to_push_result_point(
+          &mut min_hamming_distance_for_point,
+          result_level as usize,
+          result_point,
+        );
       }
     }
     return min_hamming_distance_for_point;

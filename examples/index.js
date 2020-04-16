@@ -1,4 +1,4 @@
-var addon = require('..');
+const addon = require('..');
 const path = require('path');
 
 console.time('image_search');

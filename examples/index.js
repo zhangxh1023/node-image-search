@@ -2,10 +2,10 @@ var addon = require('..');
 const path = require('path');
 
 console.time('image_search');
-addon.image_search(path.join(__dirname, '../img/big.jpeg'),
-  path.join(__dirname, '../img/small.jpeg'),
+addon.image_search(path.join(__dirname, './img/big.png'),
+  path.join(__dirname, './img/small.png'),
   {
-    out: path.join(__dirname, '../temp.jpg'),
+    out: path.join(__dirname, './temp.jpeg'),
     result_level: 2,
   },
   (err, res) => {
@@ -14,7 +14,7 @@ addon.image_search(path.join(__dirname, '../img/big.jpeg'),
   });
 
 console.time('get_d_hash');
-addon.get_d_hash(path.join(__dirname, '../img/small.jpeg'),
+addon.get_d_hash(path.join(__dirname, './img/small.png'),
   (err, res) => {
     console.log('get_d_hash', err, res);
     console.timeEnd('get_d_hash');

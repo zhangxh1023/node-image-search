@@ -19,7 +19,9 @@ impl Task for ImageSearchTask {
     let child_image = image::Image::new(self.child_image_path.clone());
     let result =
       parent_image.search_child_image_point_from_parent_image(&child_image, self.result_level);
-
+    if &self.out != "" {
+      parent_image.mark_child_image_border_with_new_image(&child_image, &self.out, &result);
+    }
     Ok(result)
   }
   fn complete(

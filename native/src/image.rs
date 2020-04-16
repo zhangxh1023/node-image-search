@@ -5,14 +5,6 @@ use std::path::Path;
 
 use crate::utils;
 
-#[derive(Debug)]
-pub struct Point {
-  pub x: u32,
-  pub y: u32,
-  pub hash_string: String,
-  pub hamming_distance: u32,
-}
-
 pub struct ResultPoint {
   pub x: u32,
   pub y: u32,
@@ -192,22 +184,23 @@ impl Image {
     return min_hamming_distance_for_point;
   }
 
-  #[allow(dead_code)]
   pub fn mark_child_image_border_with_new_image(
     &self,
     child_image: &Image,
     path: &str,
-    point: &Vec<&Vec<Point>>,
+    point: &Vec<Vec<ResultPoint>>,
   ) {
     let new_image = self.image.clone();
+    let mut image_type: Vec<&str> = path.split(".").collect();
+    let image_type = image_type.pop().unwrap();
     match new_image {
       image::DynamicImage::ImageRgb8(mut img) => {
         let (child_image_width, child_image_height) = child_image.get_size();
         let (parent_image_width, parent_image_height) = self.get_size();
 
         for v in point {
-          for p in *v {
-            let Point {
+          for p in v {
+            let ResultPoint {
               x: start_x,
               y: start_y,
               hash_string: _,
@@ -231,19 +224,59 @@ impl Image {
                 let pixel = self.image.get_pixel(*start_x, point_y);
                 let pixel = [255 - pixel[0], 255 - pixel[1], 255 - pixel[2]];
                 img.put_pixel(*start_x, point_y, image::Rgb(pixel));
+              } else {
+                break;
+              }
+            }
+
+            for x in 0..child_image_width {
+              let point_x = x + start_x;
+              let point_y = start_y + child_image_height;
+              if point_y >= parent_image_height {
+                break;
+              }
+              if point_x < parent_image_width - 1 {
+                let pixel = self.image.get_pixel(point_x, point_y);
+                let pixel = [255 - pixel[0], 255 - pixel[1], 255 - pixel[2]];
+                img.put_pixel(point_x, point_y as u32, image::Rgb(pixel));
+              } else {
+                break;
+              }
+            }
+
+            for y in 0..child_image_height {
+              let point_y = y + start_y;
+              let point_x = start_x + child_image_width;
+              if point_x >= parent_image_width {
+                break;
+              }
+              if point_y < parent_image_height - 1 {
+                let pixel = self.image.get_pixel(point_x, point_y);
+                let pixel = [255 - pixel[0], 255 - pixel[1], 255 - pixel[2]];
+                img.put_pixel(point_x as u32, point_y, image::Rgb(pixel));
+              } else {
+                break;
               }
             }
           }
         }
-        img.save(Path::new(path)).expect("save image error");
+        if image_type == "png" {
+          img
+            .save_with_format(Path::new(path), image::ImageFormat::Png)
+            .expect("save image error");
+        } else {
+          img
+            .save_with_format(Path::new(path), image::ImageFormat::Jpeg)
+            .expect("save image error");
+        }
       }
       image::DynamicImage::ImageRgba8(mut img) => {
         let (child_image_width, child_image_height) = child_image.get_size();
         let (parent_image_width, parent_image_height) = self.get_size();
 
         for v in point {
-          for p in *v {
-            let Point {
+          for p in v {
+            let ResultPoint {
               x: start_x,
               y: start_y,
               hash_string: _,
@@ -269,9 +302,47 @@ impl Image {
                 img.put_pixel(*start_x, point_y, image::Rgba(pixel));
               }
             }
+
+            for x in 0..child_image_width {
+              let point_x = x + start_x;
+              let point_y = start_y + child_image_height;
+              if point_y >= parent_image_height {
+                break;
+              }
+              if point_x < parent_image_width - 1 {
+                let pixel = self.image.get_pixel(point_x, point_y);
+                let pixel = [255 - pixel[0], 255 - pixel[1], 255 - pixel[2], pixel[3]];
+                img.put_pixel(point_x, point_y as u32, image::Rgba(pixel));
+              } else {
+                break;
+              }
+            }
+
+            for y in 0..child_image_height {
+              let point_y = y + start_y;
+              let point_x = start_x + child_image_width;
+              if point_x >= parent_image_width {
+                break;
+              }
+              if point_y < parent_image_height - 1 {
+                let pixel = self.image.get_pixel(point_x, point_y);
+                let pixel = [255 - pixel[0], 255 - pixel[1], 255 - pixel[2], pixel[3]];
+                img.put_pixel(point_x as u32, point_y, image::Rgba(pixel));
+              } else {
+                break;
+              }
+            }
           }
         }
-        img.save(Path::new(path)).expect("save image error");
+        if image_type == "png" {
+          img
+            .save_with_format(Path::new(path), image::ImageFormat::Png)
+            .expect("save image error");
+        } else {
+          img
+            .save_with_format(Path::new(path), image::ImageFormat::Jpeg)
+            .expect("save image error");
+        }
       }
       _ => (),
     };

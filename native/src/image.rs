@@ -25,8 +25,7 @@ impl Image {
     };
     let mut path_slice: Vec<&str> = path.split(".").collect();
     let image_type = path_slice.pop().unwrap();
-    if image_type != "jpeg" && image_type != "jpg" && image_type != "png"
-    {
+    if image_type != "jpeg" && image_type != "jpg" && image_type != "png" {
       panic!("Unexpected image type!");
     }
     Image { path, image }

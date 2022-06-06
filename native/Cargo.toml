@@ -15,4 +15,4 @@ neon-build = "0.3.3"
 
 [dependencies]
 neon = "0.3.3"
-image = "0.23.3"
+image = "0.23.12"

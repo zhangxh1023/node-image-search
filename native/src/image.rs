@@ -21,7 +21,7 @@ impl Image {
   pub fn new(path: String) -> Self {
     let image = match image::open(&Path::new(&path)) {
       Ok(img) => img,
-      Err(e) => panic!(e),
+      Err(e) => panic!("{}", e),
     };
     let mut path_slice: Vec<&str> = path.split(".").collect();
     let image_type = path_slice.pop().unwrap();

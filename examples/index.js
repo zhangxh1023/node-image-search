@@ -2,8 +2,8 @@ const addon = require('..');
 const path = require('path');
 
 console.time('image_search');
-addon.image_search(path.join(__dirname, './img/4/big.png'),
-  path.join(__dirname, './img/4/small.png'),
+addon.image_search(path.join(__dirname, './img/1/big.png'),
+  path.join(__dirname, './img/1/small.png'),
   {
     out: path.join(__dirname, './temp.jpeg'),
     result_level: 2,

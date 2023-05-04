@@ -6,7 +6,7 @@
   "author": "zhangxh1023 <zhangxh1023@qq.com>",
   "license": "MIT",
   "dependencies": {
-    "neon-cli": "^0.3.3"
+    "neon-cli": "^0.10.1"
   },
   "scripts": {
     "install": "neon build"

@@ -64,23 +64,17 @@ fn image_search(mut cx: FunctionContext) -> JsResult<JsUndefined> {
   let parent_image_path = cx.argument::<JsString>(0)?.value();
   let child_image_path = cx.argument::<JsString>(1)?.value();
   let options = cx.argument::<JsObject>(2)?;
-  let out = options
-    .get(&mut cx, "out")?
-    .downcast::<JsString>()
-    .or_throw(&mut cx)?
-    .value();
+  let out: Handle<JsString> = options.get(&mut cx, "out")?;
+  let out = out.value();
 
-  let result_level = options
-    .get(&mut cx, "result_level")?
-    .downcast::<JsNumber>()
-    .or_throw(&mut cx)?
-    .value();
+  let result_level: Handle<JsNumber> = options.get(&mut cx, "result_level")?;
+
   let f = cx.argument::<JsFunction>(3)?;
   let image_search_task = ImageSearchTask {
     parent_image_path,
     child_image_path,
     out,
-    result_level: result_level as u32,
+    result_level: result_level.value() as u32,
   };
   image_search_task.schedule(f);
   Ok(cx.undefined())
